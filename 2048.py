@@ -12,7 +12,11 @@ import cv2
 import matplotlib.pyplot as plt
 import copy
 
-os.chdir('D:\\Dev\\2048\\')
+SYSTEM = os.name
+if SYSTEM == 'posix':
+    os.chdir('/home/pag06h/Dev/smages/2048/')
+elif SYSTEM == 'nt':
+    os.chdir('D:\\Dev\\2048\\')
 
 GAMESTART = True
 CANUNDO = True
@@ -21,6 +25,7 @@ NUMBERS = {'2.0': 0, '4.0': 1, '8.0': 2,
            '16.0': 3, '32.0': 4, '64.0': 5,
            '128.0': 6, '256.0': 7, '512.0': 8,
            '1024.0': 9, '2048.0': 10}
+FIBONNACI = [0,1,1,2,3,5,8,13,21,34,55,89,144]
 
 with open('MAXSCORE.json') as score_file:
     score = json.load(score_file)
@@ -28,6 +33,7 @@ with open('MAXSCORE.json') as score_file:
         if key == 'MAXSCORE':
             MAXSCORE = value
 score = 0
+power = 0
 
 def randomise(game, DIFFICULTY, game_size):
     if DIFFICULTY == 'Easy':
@@ -49,7 +55,7 @@ def randomise(game, DIFFICULTY, game_size):
         game[r,c] = 2 + 2*((np.random.rand(1))>(0.5+ num2add/10))
     return game
 
-def put_to_screen(game, NUMBERS, score, MAXSCORE, game_size):
+def put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power):
     # display image
     # background = Image.open("template.png")
     background = cv2.imread("template.png")
@@ -64,6 +70,14 @@ def put_to_screen(game, NUMBERS, score, MAXSCORE, game_size):
                 number = tiles[:,ind*WIDTH:((ind+1)*WIDTH)]
                 tilepos = [148+x*(12+WIDTH), 80+y*(12+WIDTH)]
                 background[tilepos[0]:(tilepos[0]+WIDTH),tilepos[1]:(tilepos[1]+WIDTH)] = number
+
+    # add power
+    if power > 0:
+        powerbar = cv2.imread("loadingbar.png")
+        height, width, channels = powerbar.shape
+        barwidth = int((power / 100) * width)
+        print(barwidth)
+        background[148:456, 148:(148+barwidth)] = powerbar[:,0:barwidth]
 
     # add score text
     # draw = ImageDraw.Draw(background)
@@ -82,7 +96,7 @@ def put_to_screen(game, NUMBERS, score, MAXSCORE, game_size):
     cv2.waitKey(250)
     return
 
-def move_up(game, score, game_size):
+def move_up(game, score, game_size, power):
     just_merged = np.zeros((game_size,game_size))  # need to trigger just merged so 2nd merge doesnt happen in the same turn!
     for x in range(1, game_size):
         for y in range(0, game_size):
@@ -112,9 +126,12 @@ def move_up(game, score, game_size):
                         game[x2+1,y] = game[x,y]
                         game[x,y] = 0
 
-    return game, score
+    numofcombs = int(np.sum(just_merged))
+    power += FIBONNACI[numofcombs]
 
-def move_down(game, score, game_size):
+    return game, score, power
+
+def move_down(game, score, game_size, power):
     just_merged = np.zeros((game_size,game_size))  # need to trigger just merged so 2nd merge doesnt happen in the same turn!
     for x in range(game_size-2, -1, -1):
         for y in range(0, game_size):
@@ -144,9 +161,12 @@ def move_down(game, score, game_size):
                         game[x2-1,y] = game[x,y]
                         game[x,y] = 0
 
-    return game, score
+    numofcombs = int(np.sum(just_merged))
+    power += FIBONNACI[numofcombs]
 
-def move_left(game, score, game_size):
+    return game, score, power
+
+def move_left(game, score, game_size, power):
     just_merged = np.zeros((game_size,game_size))  # need to trigger just merged so 2nd merge doesnt happen in the same turn!
     for x in range(0, game_size):
         for y in range(1, game_size):
@@ -176,9 +196,12 @@ def move_left(game, score, game_size):
                         game[x,y2+1] = game[x,y]
                         game[x,y] = 0
 
-    return game, score
+    numofcombs = int(np.sum(just_merged))
+    power += FIBONNACI[numofcombs]
 
-def move_right(game, score, game_size):
+    return game, score, power
+
+def move_right(game, score, game_size, power):
     just_merged = np.zeros((game_size,game_size))  # need to trigger just merged so 2nd merge doesnt happen in the same turn!
     for x in range(0, game_size):
         for y in range(game_size-2, -1, -1):
@@ -208,7 +231,10 @@ def move_right(game, score, game_size):
                         game[x,y2-1] = game[x,y]
                         game[x,y] = 0
 
-    return game, score
+    numofcombs = int(np.sum(just_merged))
+    power += FIBONNACI[numofcombs]
+
+    return game, score, power
 
 # overlay images using PIL
 # https://moonbooks.org/Articles/How-to-overlay--superimpose-two-images-using-python-and-pillow-/
@@ -225,7 +251,7 @@ elif DIFFICULTY == 'Hard':
 game = np.zeros((game_size,game_size))
 
 game = randomise(game, DIFFICULTY, game_size)
-put_to_screen(game, NUMBERS, score, MAXSCORE, game_size)
+put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power)
 
 GAMESTART = True
 print('Game start!!')
@@ -234,35 +260,39 @@ print('score = ', score)
 
 # undo
 old_score = 0
+old_power = 0
 old_game = np.zeros((game_size,game_size))
 
 while GAMESTART is True:
     KEYPRESSED = False
     if (keyboard.read_key() == "w"):
-        [game, score] = move_up(game, score, game_size)
+        [game, score, power] = move_up(game, score, game_size, power)
         KEYPRESSED = True
     if (keyboard.read_key() == "a"):
-        [game, score] = move_left(game, score, game_size)
+        [game, score, power] = move_left(game, score, game_size, power)
         KEYPRESSED = True
     if (keyboard.read_key() == "s"):
-        [game, score] = move_down(game, score, game_size)
+        [game, score, power] = move_down(game, score, game_size, power)
         KEYPRESSED = True
     if (keyboard.read_key() == "d"):
-        [game, score] = move_right(game, score, game_size)
+        [game, score, power] = move_right(game, score, game_size, power)
         KEYPRESSED = True
+
+    power = int(np.max([100, power])) #max 100%
+
     # if keyboard.is_pressed('p'):    # power!
+    #todo how does power work???
     #     print('to be put in')
 
     if (keyboard.read_key() == "r"):    # restart (new game)
         print('NEW GAME!')
         game = np.zeros((game_size,game_size))
         score = 0
+        power = 0
         game = randomise(game, DIFFICULTY, game_size)
-        # undo
-        old_score = 0
-        old_game = np.zeros((game_size, game_size))
         print(game)
         print('score = ', score, '\tmaxscore = ', MAXSCORE)
+
     if (keyboard.read_key() == "x"):    # close everything
         cv2.destroyAllWindows()
         quit()
@@ -277,12 +307,13 @@ while GAMESTART is True:
         # store old game/score
         old_game = copy.deepcopy(game)
         old_score = copy.deepcopy(score)
+        old_power = copy.deepcopy(power)
 
         # update game board
         game = randomise(game, DIFFICULTY, game_size)
         print(game)
         print('score = ', score, '\tmaxscore = ', MAXSCORE)
-        put_to_screen(game, NUMBERS, score, MAXSCORE, game_size)
+        put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power)
         KEYPRESSED = False
         CANUNDO = True
 
@@ -316,7 +347,8 @@ while GAMESTART is True:
             print(game, old_game)
             score = old_score
             game = old_game
-            put_to_screen(game, NUMBERS, score, MAXSCORE, game_size)
+            power = old_power
+            put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power)
             CANUNDO = False
         else:
             print('Can\'t undo!')
