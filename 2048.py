@@ -1,5 +1,6 @@
 __author__= 'Alex Pagnozzi'
 
+import argparse
 import numpy as np
 import os
 from PIL import Image
@@ -18,30 +19,21 @@ if SYSTEM == 'posix':
 elif SYSTEM == 'nt':
     os.chdir('D:\\Dev\\2048\\')
 
-GAMESTART = True
-CANUNDO = True
-DIFFICULTY = 'Medium' #todo, Easy, Medium, Hard
+# index for number tile on tile palette
 NUMBERS = {'2.0': 0, '4.0': 1, '8.0': 2,
            '16.0': 3, '32.0': 4, '64.0': 5,
            '128.0': 6, '256.0': 7, '512.0': 8,
            '1024.0': 9, '2048.0': 10}
-FIBONNACI = [0,1,1,2,3,5,8,13,21,34,55,89,144]
+# score increase based on sequence
+FIBONNACI = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]
 
-with open('MAXSCORE.json') as score_file:
-    score = json.load(score_file)
-    for key, value in score.items():
-        if key == 'MAXSCORE':
-            MAXSCORE = value
-score = 0
-power = 0
-
-def randomise(game, DIFFICULTY, game_size):
+def randomise(game, DIFFICULTY):
     if DIFFICULTY == 'Easy':
         num2add = 1
     elif DIFFICULTY == 'Medium':
         num2add = 1 + 1*(np.random.rand(1)>0.5)
     elif DIFFICULTY == 'Hard':
-        num2add = 2 + 1*(np.random.rand(1)>0.5)
+        num2add = 2 + 1*(np.random.rand(1)>0.4)
 
     zeros = np.argwhere(game == 0)
     num2add = np.min([num2add, len(zeros)])
@@ -58,17 +50,32 @@ def randomise(game, DIFFICULTY, game_size):
 def put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power):
     # display image
     # background = Image.open("template.png")
-    background = cv2.imread("template.png")
+    if game_size == 3:
+        # todo new image
+        background = cv2.imread("template.png")
+        gridXY = [148,80]
+        WIDTH = 108
+        SPACE = 12
+    elif game_size == 4:
+        background = cv2.imread("template.png")
+        gridXY = [148, 80]
+        WIDTH = 108
+        SPACE = 12
+    elif game_size == 5:
+        # todo new image
+        background = cv2.imread("template.png")
+        gridXY = [148, 80]
+        WIDTH = 108
+        SPACE = 12
 
     # add number tiles
     tiles = cv2.imread("resources.png")  # 108 wide, 0-107, 108-215 etc...
-    WIDTH = 108
     for x in range(0, game_size):
         for y in range(0, game_size):
             if game[x,y] > 0:
                 ind = NUMBERS[str(game[x,y])]
                 number = tiles[:,ind*WIDTH:((ind+1)*WIDTH)]
-                tilepos = [148+x*(12+WIDTH), 80+y*(12+WIDTH)]
+                tilepos = [gridXY[0]+x*(SPACE+WIDTH), gridXY[1]+y*(SPACE+WIDTH)]
                 background[tilepos[0]:(tilepos[0]+WIDTH),tilepos[1]:(tilepos[1]+WIDTH)] = number
 
     # add power
@@ -236,122 +243,155 @@ def move_right(game, score, game_size, power):
 
     return game, score, power
 
+######################## HELP #####################################################################
 # overlay images using PIL
 # https://moonbooks.org/Articles/How-to-overlay--superimpose-two-images-using-python-and-pillow-/
 # or opencv
 # https://stackoverflow.com/questions/14063070/overlay-a-smaller-image-on-a-larger-image-python-opencv
 
-if DIFFICULTY == 'Easy':
-    game_size = 3
-elif DIFFICULTY == 'Medium':
-    game_size = 4
-elif DIFFICULTY == 'Hard':
-    game_size = 5
+def main(args):
+    # set difficulty
+    DIFFICULTY = args.difficulty  # Easy, Medium, Hard
+    if DIFFICULTY == 'Easy':
+        game_size = 3
+    elif DIFFICULTY == 'Medium':
+        game_size = 4
+    elif DIFFICULTY == 'Hard':
+        game_size = 5
+    else:
+        DIFFICULTY = 'Medium'
+        game_size = 4
 
-game = np.zeros((game_size,game_size))
+    # load old MAX SCORE
+    with open('MAXSCORE.json') as score_file:
+        score = json.load(score_file)
+        for key, value in score.items():
+            if key == 'MAXSCORE':
+                MAXSCORE = value
 
-game = randomise(game, DIFFICULTY, game_size)
-put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power)
+    GAMESTART = True
+    CANUNDO = True
 
-GAMESTART = True
-print('Game start!!')
-print(game)
-print('score = ', score)
+    # initialise game
+    print('Game start!!')
+    score = 0
+    power = 0
+    game = np.zeros((game_size,game_size))
+    game = randomise(game, DIFFICULTY)
+    put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power)
+    print(game)
+    print('score = ', score)
 
-# undo
-old_score = 0
-old_power = 0
-old_game = np.zeros((game_size,game_size))
+    # initialise undo (i.e. last turn)
+    old_score = 0
+    old_power = 0
+    old_game = np.zeros((game_size,game_size))
 
-while GAMESTART is True:
-    KEYPRESSED = False
-    if (keyboard.read_key() == "w"):
-        [game, score, power] = move_up(game, score, game_size, power)
-        KEYPRESSED = True
-    if (keyboard.read_key() == "a"):
-        [game, score, power] = move_left(game, score, game_size, power)
-        KEYPRESSED = True
-    if (keyboard.read_key() == "s"):
-        [game, score, power] = move_down(game, score, game_size, power)
-        KEYPRESSED = True
-    if (keyboard.read_key() == "d"):
-        [game, score, power] = move_right(game, score, game_size, power)
-        KEYPRESSED = True
-
-    power = int(np.max([100, power])) #max 100%
-
-    # if keyboard.is_pressed('p'):    # power!
-    #todo how does power work???
-    #     print('to be put in')
-
-    if (keyboard.read_key() == "r"):    # restart (new game)
-        print('NEW GAME!')
-        game = np.zeros((game_size,game_size))
-        score = 0
-        power = 0
-        game = randomise(game, DIFFICULTY, game_size)
-        print(game)
-        print('score = ', score, '\tmaxscore = ', MAXSCORE)
-
-    if (keyboard.read_key() == "x"):    # close everything
-        cv2.destroyAllWindows()
-        quit()
-
-    # update top score
-    if score > MAXSCORE:
-        MAXSCORE = score
-        with open('MAXSCORE.json', 'w', encoding='utf8') as json_file:
-            json.dump({'MAXSCORE': MAXSCORE}, json_file, allow_nan=False)
-
-    if KEYPRESSED:
-        # store old game/score
-        old_game = copy.deepcopy(game)
-        old_score = copy.deepcopy(score)
-        old_power = copy.deepcopy(power)
-
-        # update game board
-        game = randomise(game, DIFFICULTY, game_size)
-        print(game)
-        print('score = ', score, '\tmaxscore = ', MAXSCORE)
-        put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power)
+    while GAMESTART is True:
         KEYPRESSED = False
-        CANUNDO = True
+        if (keyboard.read_key() == "w"):
+            [game, score, power] = move_up(game, score, game_size, power)
+            KEYPRESSED = True
+        if (keyboard.read_key() == "a"):
+            [game, score, power] = move_left(game, score, game_size, power)
+            KEYPRESSED = True
+        if (keyboard.read_key() == "s"):
+            [game, score, power] = move_down(game, score, game_size, power)
+            KEYPRESSED = True
+        if (keyboard.read_key() == "d"):
+            [game, score, power] = move_right(game, score, game_size, power)
+            KEYPRESSED = True
 
-    # check if won, then exit
-    if np.max(game) == 2048:
-        print('YOU WINNER!')
-        GAMESTART = False
+        power = int(np.max([100, power])) #max 100%
+
+        # if keyboard.is_pressed('p'):    # power!
+        #todo how does power work???
+        #     print('to be put in')
+
+        if (keyboard.read_key() == "r"):    # restart (new game)
+            print('NEW GAME!')
+            game = np.zeros((game_size,game_size))
+            score = 0
+            power = 0
+            game = randomise(game, DIFFICULTY)
+            print(game)
+            print('score = ', score, '\tmaxscore = ', MAXSCORE)
+
+        if (keyboard.read_key() == "x"):    # close everything
+            cv2.destroyAllWindows()
+            quit()
+
+        # update top score
         if score > MAXSCORE:
             MAXSCORE = score
+            with open('MAXSCORE.json', 'w', encoding='utf8') as json_file:
+                json.dump({'MAXSCORE': MAXSCORE}, json_file, allow_nan=False)
 
-    #todo check if no moves available
-    if np.min(game) > 0:
-        # ie no space, and no adjacent tiles with same number!
-        NOADJACENT = True
-        for x in range(0, game_size):
-            for y in range(0, game_size):
-                if x > 0:
-                    if game[x-1,y] == game[x,y]:
-                        NOADJACENT = False
-                if y > 0:
-                    if game[x,y-1] == game[x,y]:
-                        NOADJACENT = False
-        if NOADJACENT:
-            print('YOU LOST!')
+        if KEYPRESSED:
+            # store old game/score
+            old_game = copy.deepcopy(game)
+            old_score = copy.deepcopy(score)
+            old_power = copy.deepcopy(power)
 
-    # undo if possible
-    if (keyboard.read_key() == "u"):    # undo
-        if CANUNDO:
-            print('Undoing!')
-            print(score, old_score)
-            print(game, old_game)
-            score = old_score
-            game = old_game
-            power = old_power
+            # update game board
+            game = randomise(game, DIFFICULTY)
+            print(game)
+            print('score = ', score, '\tmaxscore = ', MAXSCORE)
             put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power)
-            CANUNDO = False
-        else:
-            print('Can\'t undo!')
+            KEYPRESSED = False
+            CANUNDO = True
 
-    #todo increase score, by the sum of the merge
-    #todo increase power gauge (not just pre turn, but with number of merges!!)
+        # check if won, then exit
+        if np.max(game) == 2048:
+            print('YOU WINNER!')
+            GAMESTART = False
+            if score > MAXSCORE:
+                MAXSCORE = score
+
+        #todo check if no moves available
+        if np.min(game) > 0:
+            # ie no space, and no adjacent tiles with same number!
+            NOADJACENT = True
+            for x in range(0, game_size):
+                for y in range(0, game_size):
+                    if x > 0:
+                        if game[x-1,y] == game[x,y]:
+                            NOADJACENT = False
+                    if y > 0:
+                        if game[x,y-1] == game[x,y]:
+                            NOADJACENT = False
+            if NOADJACENT:
+                print('YOU LOST!')
+
+        # undo if possible
+        if (keyboard.read_key() == "u"):    # undo
+            if CANUNDO:
+                print('Undoing!')
+                print(score, old_score)
+                print(game, old_game)
+                score = old_score
+                game = old_game
+                power = old_power
+                put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power)
+                CANUNDO = False
+            else:
+                print('Can\'t undo!')
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="""\n
+    2048!\n
+    \n
+    The game 2048, with a bit extra.\n
+    \n
+    Examples of usage:\n
+            python 2048.py --difficulty 'Medium'\n
+    \n
+    Author: Alex Pagnozzi\n
+    \n
+    """)
+
+    parser.add_argument('--difficulty', type=str, help='Game difficulty, choose:\n\'Easy\' 3x3\n\'Medium\' 4x4\n\'Hard\' 5x5', default='Medium')
+
+    args = parser.parse_args()
+    main(args)
