@@ -28,11 +28,11 @@ NUMBERS = {'2.0': 0, '4.0': 1, '8.0': 2,
 FIBONNACI = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144]
 
 def randomise(game, DIFFICULTY):
-    if DIFFICULTY == 'Easy':
+    if DIFFICULTY == 'easy':
         num2add = 1
-    elif DIFFICULTY == 'Medium':
+    elif DIFFICULTY == 'medium':
         num2add = 1 + 1*(np.random.rand(1)>0.5)
-    elif DIFFICULTY == 'Hard':
+    elif DIFFICULTY == 'hard':
         num2add = 2 + 1*(np.random.rand(1)>0.4)
 
     zeros = np.argwhere(game == 0)
@@ -52,39 +52,44 @@ def put_to_screen(game, NUMBERS, score, MAXSCORE, game_size, power):
     # background = Image.open("template.png")
     if game_size == 3:
         # todo new image
-        background = cv2.imread("template.png")
-        gridXY = [148,80]
-        WIDTH = 108
-        SPACE = 12
+        background = cv2.imread("template_easy.png")
+        tiles = cv2.imread("resources_easy.png")  # 108 wide, 0-107, 108-215 etc...
+        gridXY = [111,21]
+        WIDTH = 179
+        SPACE = 21
     elif game_size == 4:
-        background = cv2.imread("template.png")
-        gridXY = [148, 80]
-        WIDTH = 108
-        SPACE = 12
+        background = cv2.imread("template_med.png")
+        tiles = cv2.imread("resources_med.png")
+        gridXY = [108, 18]
+        WIDTH = 134
+        SPACE = 16
     elif game_size == 5:
         # todo new image
-        background = cv2.imread("template.png")
-        gridXY = [148, 80]
+        background = cv2.imread("template_hard.png")
+        tiles = cv2.imread("resources_hard.png")
+        gridXY = [105, 16]
         WIDTH = 108
         SPACE = 12
 
     # add number tiles
-    tiles = cv2.imread("resources.png")  # 108 wide, 0-107, 108-215 etc...
     for x in range(0, game_size):
         for y in range(0, game_size):
             if game[x,y] > 0:
                 ind = NUMBERS[str(game[x,y])]
-                number = tiles[:,ind*WIDTH:((ind+1)*WIDTH)]
+                number = tiles[:,ind*WIDTH:((ind+1)*WIDTH),:]
                 tilepos = [gridXY[0]+x*(SPACE+WIDTH), gridXY[1]+y*(SPACE+WIDTH)]
                 background[tilepos[0]:(tilepos[0]+WIDTH),tilepos[1]:(tilepos[1]+WIDTH)] = number
 
     # add power
     if power > 0:
+        power = int(np.min([100, power]))
         powerbar = cv2.imread("loadingbar.png")
         height, width, channels = powerbar.shape
         barwidth = int((power / 100) * width)
-        print(barwidth)
-        background[148:456, 148:(148+barwidth)] = powerbar[:,0:barwidth]
+        # print(height, width, channels)
+        # print(power, barwidth)
+        powerpos = [729,13] #791
+        background[powerpos[0]:(powerpos[0]+62), powerpos[1]:(powerpos[1]+barwidth)] = powerbar[:,0:barwidth,:]
 
     # add score text
     # draw = ImageDraw.Draw(background)
@@ -134,6 +139,7 @@ def move_up(game, score, game_size, power):
                         game[x,y] = 0
 
     numofcombs = int(np.sum(just_merged))
+    # print(numofcombs, FIBONNACI[numofcombs], power)
     power += FIBONNACI[numofcombs]
 
     return game, score, power
@@ -169,6 +175,7 @@ def move_down(game, score, game_size, power):
                         game[x,y] = 0
 
     numofcombs = int(np.sum(just_merged))
+    # print(numofcombs, FIBONNACI[numofcombs], power)
     power += FIBONNACI[numofcombs]
 
     return game, score, power
@@ -204,6 +211,7 @@ def move_left(game, score, game_size, power):
                         game[x,y] = 0
 
     numofcombs = int(np.sum(just_merged))
+    # print(numofcombs, FIBONNACI[numofcombs], power)
     power += FIBONNACI[numofcombs]
 
     return game, score, power
@@ -239,6 +247,7 @@ def move_right(game, score, game_size, power):
                         game[x,y] = 0
 
     numofcombs = int(np.sum(just_merged))
+    # print(numofcombs, FIBONNACI[numofcombs], power)
     power += FIBONNACI[numofcombs]
 
     return game, score, power
@@ -252,14 +261,16 @@ def move_right(game, score, game_size, power):
 def main(args):
     # set difficulty
     DIFFICULTY = args.difficulty  # Easy, Medium, Hard
-    if DIFFICULTY == 'Easy':
+    DIFFICULTY = DIFFICULTY.lower()
+    if DIFFICULTY == 'easy':
         game_size = 3
-    elif DIFFICULTY == 'Medium':
+    elif DIFFICULTY == 'medium' or DIFFICULTY == 'med':
         game_size = 4
-    elif DIFFICULTY == 'Hard':
+        DIFFICULTY = 'medium'
+    elif DIFFICULTY == 'hard':
         game_size = 5
     else:
-        DIFFICULTY = 'Medium'
+        DIFFICULTY = 'medium'
         game_size = 4
 
     # load old MAX SCORE
@@ -302,7 +313,7 @@ def main(args):
             [game, score, power] = move_right(game, score, game_size, power)
             KEYPRESSED = True
 
-        power = int(np.max([100, power])) #max 100%
+        power = int(np.min([100, power])) #max 100%
 
         # if keyboard.is_pressed('p'):    # power!
         #todo how does power work???
