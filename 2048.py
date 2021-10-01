@@ -31,9 +31,9 @@ def randomise(game, DIFFICULTY):
     if DIFFICULTY == 'easy':
         num2add = 1
     elif DIFFICULTY == 'medium':
-        num2add = 1 + 1*(np.random.rand(1)>0.5)
+        num2add = 1 + 1*(np.random.rand(1)>0.85)
     elif DIFFICULTY == 'hard':
-        num2add = 2 + 1*(np.random.rand(1)>0.4)
+        num2add = 1 + 1*(np.random.rand(1)>0.6)
 
     zeros = np.argwhere(game == 0)
     num2add = np.min([num2add, len(zeros)])
@@ -252,6 +252,22 @@ def move_right(game, score, game_size, power):
 
     return game, score, power
 
+def do_power(game, score, game_size, power):
+    if power > 0:
+        power = int(np.min([100, power]))
+
+        powerint = int(power/100*11)
+        thresh = 2 ** powerint
+
+        for x in range(0, game_size):
+            for y in range(0, game_size):
+                if game[x,y] <= thresh:
+                    score += game[x,y]
+                    game[x,y] = 0
+
+    return game, score, power
+
+
 ######################## HELP #####################################################################
 # overlay images using PIL
 # https://moonbooks.org/Articles/How-to-overlay--superimpose-two-images-using-python-and-pillow-/
@@ -315,9 +331,8 @@ def main(args):
 
         power = int(np.min([100, power])) #max 100%
 
-        # if keyboard.is_pressed('p'):    # power!
-        #todo how does power work???
-        #     print('to be put in')
+        if (keyboard.read_key() == "p"):    # power!
+            [game, score, power] = do_power(game, score, game_size, power)
 
         if (keyboard.read_key() == "r"):    # restart (new game)
             print('NEW GAME!')
